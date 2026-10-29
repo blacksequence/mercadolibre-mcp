@@ -602,6 +602,58 @@ The repository owner must complete these one-time steps in PyPI and GitHub befor
 
 No `PYPI_API_TOKEN` GitHub Secret is needed: publishing uses GitHub Actions OIDC, which PyPI validates against the Trusted Publisher above.
 
+## Automation: Mercado Libre Documentation Snapshot
+
+This repository includes an automated GitHub Actions workflow that snapshots the Mercado Libre API documentation using Firecrawl Agent.
+
+### Purpose
+
+Every scheduled run executes exactly one Firecrawl Agent invocation against the Mercado Libre developer documentation and persists the validated result as a standalone JSON snapshot. Downstream workflows can consume this document to propose OpenAPI changes.
+
+### Output
+
+- **Snapshot path**: `docs/sources/mercadolibre-docs.json`
+- **Format**: UTF-8 JSON, two spaces indentation, trailing newline
+- **Contents**: `run.data` from Firecrawl Agent, no timestamps or run metadata added
+
+### Schedule
+
+The workflow runs automatically weekly on Mondays at `03:15 UTC` (`15 3 * * 1`) and can be triggered manually from the GitHub Actions UI using `workflow_dispatch`.
+
+### How to trigger manually
+
+Open the GitHub repository, go to **Actions**, select **Sync Mercado Libre Docs**, and click **Run workflow**.
+
+### Secret setup
+
+1. Open the GitHub repository
+2. Navigate to **Settings** → **Secrets and variables** → **Actions**
+3. Click **New repository secret**
+4. Name: `FIRECRAWL_API_KEY`
+5. Value: paste your actual Firecrawl API key
+6. Click **Save**
+
+### Automation branch and pull request
+
+- **Head branch**: `automation/docs-snapshot`
+- **Base branch**: `main` (default branch)
+- The workflow creates or updates a pull request from `automation/docs-snapshot` into `main` when the generated snapshot changed.
+- If the snapshot is unchanged, no commit or new PR is created; the existing branch and PR stay untouched.
+
+### Failure handling
+
+If `FIRECRAWL_API_KEY` is missing, Firecrawl returns an error, `run.data` is invalid, or validation fails, the job fails without overwriting the previous valid snapshot and without creating or updating a pull request.
+
+### Firecrawl usage
+
+Each workflow run makes exactly one application-level call to `firecrawl.agent()`. A daily schedule may incur Firecrawl service costs depending on your plan. There is no automatic retry on failure.
+
+### Running tests
+
+The script is implemented as a standalone Bash script (`scripts/sync-mercadolibre-docs.sh`) using `curl` and `jq`. It requires no Node.js dependencies.
+
+---
+
 ## License
 
 MIT
