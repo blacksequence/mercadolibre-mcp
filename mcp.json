@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "mercadolibre-devsite-mcp": {
+      "type": "http",
+      "url": "https://mcp.mercadolibre.com/devsite/v1/mcp"
+    }
+  }
+}
