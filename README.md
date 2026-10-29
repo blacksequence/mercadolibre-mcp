@@ -624,14 +624,13 @@ The workflow runs automatically weekly on Mondays at `03:15 UTC` (`15 3 * * 1`) 
 
 Open the GitHub repository, go to **Actions**, select **Sync Mercado Libre Docs**, and click **Run workflow**.
 
-### Secret setup
+### Required Repository Settings for PR Creation
 
-1. Open the GitHub repository
-2. Navigate to **Settings** → **Secrets and variables** → **Actions**
-3. Click **New repository secret**
-4. Name: `FIRECRAWL_API_KEY`
-5. Value: paste your actual Firecrawl API key
-6. Click **Save**
+For the GitHub Actions workflow to successfully create or update pull requests, you must enable workflow PR permissions in your repository:
+1. Go to your repository **Settings** → **Actions** → **General**.
+2. Scroll down to **Workflow permissions**.
+3. Check **"Allow GitHub Actions to create and approve pull requests"**.
+4. Click **Save**.
 
 ### Automation branch and pull request
 
