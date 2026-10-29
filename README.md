@@ -90,6 +90,16 @@ This server is built against the official MercadoLibre API:
 
 ## Installation
 
+### Option A: Install from PyPI (recommended for users)
+
+```bash
+uvx --from mercadolibre-mcp mercadolibre-mcp --version
+```
+
+`uvx` downloads the `mercadolibre-mcp` package from PyPI into an isolated environment and runs its `mercadolibre-mcp` console script, which launches the MCP server over `stdio`. No clone, no `uv sync`, and no local checkout required.
+
+### Option B: Install from source (for contributors)
+
 ```bash
 # Clone
 git clone https://github.com/dedero1985/mercadolibre-mcp.git
@@ -224,7 +234,31 @@ uv run --env-file .env python -m mercadolibre_mcp.auth --list
 
 ### Claude Desktop / Claude Code
 
+**Recommended (install from PyPI via uvx)** — no clone required:
+
 Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `~/.config/Claude/claude_desktop_config.json` (Linux):
+
+```json
+{
+  "mcpServers": {
+    "mercadolibre": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "mercadolibre-mcp",
+        "mercadolibre-mcp"
+      ],
+      "env": {
+        "MERCADOLIBRE_CLIENT_ID": "${MERCADOLIBRE_CLIENT_ID}",
+        "MERCADOLIBRE_CLIENT_SECRET": "${MERCADOLIBRE_CLIENT_SECRET}",
+        "MERCADOLIBRE_SITE_ID": "${MERCADOLIBRE_SITE_ID:-MLA}"
+      }
+    }
+  }
+}
+```
+
+**Local development** (points at your checkout instead of PyPI):
 
 ```json
 {
@@ -301,17 +335,22 @@ Merge the following into `~/.config/opencode/opencode.json` (or `opencode.jsonc`
     "mercadolibre": {
       "type": "local",
       "command": [
-        "/ABSOLUTE/PATH/TO/uv",
-        "--directory", "/ABSOLUTE/PATH/TO/mercadolibre-mcp",
-        "run", "--env-file", "/ABSOLUTE/PATH/TO/mercadolibre-mcp/.env",
-        "python", "-m", "mercadolibre_mcp.main"
+        "/ABSOLUTE/PATH/TO/uvx",
+        "--from", "mercadolibre-mcp", "mercadolibre-mcp"
       ],
+      "env": {
+        "MERCADOLIBRE_CLIENT_ID": "${MERCADOLIBRE_CLIENT_ID}",
+        "MERCADOLIBRE_CLIENT_SECRET": "${MERCADOLIBRE_CLIENT_SECRET}",
+        "MERCADOLIBRE_SITE_ID": "${MERCADOLIBRE_SITE_ID:-MLA}"
+      },
       "enabled": true,
       "timeout": 30000
     }
   }
 }
 ```
+
+> `uvx` downloads the `mercadolibre-mcp` package from PyPI into an isolated environment and runs its `mercadolibre-mcp` console script over `stdio`. No local checkout or `--env-file` path is needed; supply credentials through the `env` map (or your shell) instead.
 
 Replace all paths with real absolute paths; `command -v uv` shows the executable location. `command` is one array containing the executable and all arguments; there is no separate `args` field. The local process communicates over stdio even though OpenCode's configuration type is `local`. Keep credentials in the protected `.env` file, not this JSON. Set `MERCADOLIBRE_SITE_ID=MLU` there for a Uruguay default; use `site_id="MLA"` for Argentina. One server supports both profiles.
 
@@ -515,6 +554,53 @@ Confirm which build you are running with:
 ```bash
 uv run mercadolibre-mcp --version
 ```
+
+### Building and inspecting the distribution
+
+```bash
+uv build
+ls dist/
+```
+
+This produces `mercadolibre_mcp-<version>-py3-none-any.whl` and `mercadolibre_mcp-<version>.tar.gz` in `dist/`. The wheel contains all four modules (`__init__.py`, `auth.py`, `client.py`, `main.py`) and registers the `mercadolibre-mcp` console script.
+
+### Publishing releases (GitHub Actions / Trusted Publishing)
+
+Releases are published to PyPI automatically by GitHub Actions using **Trusted Publishing (OIDC)** — no long-lived PyPI API token is stored in GitHub Secrets.
+
+1. Bump `__version__` in `src/mercadolibre_mcp/__init__.py` (the single source of truth).
+2. Commit and push a matching tag, e.g. `git tag v0.4.0 && git push origin v0.4.0`.
+3. Create a GitHub release from that tag. The `publish.yml` workflow triggers on `release.published`.
+4. The workflow runs tests + lint, builds the wheel and sdist, then publishes via `pypa/gh-action-pypi-publish` with OIDC against the PyPI Trusted Publisher configured for this repository.
+
+PyPI release versions are immutable: a fix always requires a new version. Never reuse a published version number.
+
+Before the first publication, the repository owner must configure the PyPI Trusted Publisher (see the "Manual setup required" section below).
+
+### Troubleshooting
+
+| Problem | Cause / fix |
+|---|---|
+| `uvx --from mercadolibre-mcp mercadolibre-mcp` fails to start | Ensure `uv` is installed and on `PATH`. Credentials `MERCADOLIBRE_CLIENT_ID` / `MERCADOLIBRE_CLIENT_SECRET` must be set in the MCP client `env` or shell. |
+| `No MercadoLibre token cached for site ...` | Run OAuth setup once per country: `uv run python -m mercadolibre_mcp.auth --site-id MLA` (from the source checkout, with `--env-file .env`). |
+| `stdout` contains non-JSON output | The server writes diagnostics/logs to `stderr` only; `stdout` carries MCP protocol messages. |
+| `unknown site_id` | Use one of the 18 supported site IDs (MLA, MLU, MLB, MLM, MLC, MCO, MLU, MPE, MEC, MLV, MCR, MPA, MRD, MHN, MBO, MNI, MPY, MSV, MGT). |
+| Build fails in CI | Run `uv build` locally and confirm `dist/` contains both a `.whl` and a `.tar.gz`. |
+
+### Manual setup required before first publication
+
+The repository owner must complete these one-time steps in PyPI and GitHub before the `publish.yml` workflow can publish:
+
+1. Create the `mercadolibre-mcp` project on PyPI (or use the pending-publisher flow if offered).
+2. In the PyPI project, open Publishing → Trusted Publishers and add GitHub as a provider:
+   - **Owner**: the GitHub account/organization that owns this repository.
+   - **Repository name**: `mercadolibre-mcp`.
+   - **Workflow filename**: `.github/workflows/publish.yml` (path relative to the repository root).
+   - **Environment name**: `pypi` (matches the `environment: pypi` job in `publish.yml`).
+3. Create and protect a GitHub environment named `pypi` in this repository.
+4. Save and verify the configuration.
+
+No `PYPI_API_TOKEN` GitHub Secret is needed: publishing uses GitHub Actions OIDC, which PyPI validates against the Trusted Publisher above.
 
 ## License
 

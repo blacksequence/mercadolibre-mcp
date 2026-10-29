@@ -130,10 +130,7 @@ class CreateItemInput(SiteParam):
     )
     attributes: list[dict[str, str]] | None = Field(
         default=None,
-        description=(
-            "Item attributes, e.g. [{\"id\": \"BRAND\", "
-            "\"value_name\": \"Ubiquiti\"}]"
-        ),
+        description=('Item attributes, e.g. [{"id": "BRAND", "value_name": "Ubiquiti"}]'),
     )
     family_name: str | None = Field(default=None, description="Product family name")
 
@@ -937,6 +934,11 @@ def run() -> None:
     `mercadolibre-mcp --version` prints the version and exits without starting
     the server, so you can confirm which build you are running.
     """
+    logging.basicConfig(
+        level=os.environ.get("LOG_LEVEL", "INFO"),
+        format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+        stream=sys.stderr,
+    )
     if "--version" in sys.argv[1:]:
         print(f"mercadolibre-mcp {__version__}")
         return
@@ -944,8 +946,4 @@ def run() -> None:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=os.environ.get("LOG_LEVEL", "INFO"),
-        format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
-    )
     run()
