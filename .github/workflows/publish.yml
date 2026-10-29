@@ -1,0 +1,31 @@
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - name: Sync dependencies (runtime + dev tools)
+        run: uv sync --extra dev
+      - name: Run tests and lint before publishing
+        run: |
+          uv run --extra dev ruff check src tests
+          uv run --extra dev python -m unittest discover -s tests -v
+      - name: Build wheel and source distribution
+        run: uv build
+      - name: Publish to PyPI via Trusted Publishing (OIDC)
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
