@@ -1,0 +1,41 @@
+name: Sync Mercado Libre Docs
+on:
+  schedule:
+    - cron: '15 3 * * 1' # Weekly on Mondays at 03:15 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: sync-mercadolibre-docs
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run sync script
+        env:
+          FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+        run: ./scripts/sync-mercadolibre-docs.sh
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'docs: update Mercado Libre documentation snapshot'
+          title: 'docs: update Mercado Libre documentation snapshot'
+          body: |
+            The Firecrawl Agent was executed to update the Mercado Libre API documentation.
+            The JSON snapshot was validated.
+            Output file path: `docs/sources/mercadolibre-docs.json`
+            Source URL: `https://developers.mercadolibre.com.mx/es_ar`
+            
+            Triggered by: ${{ github.event_name }}
+          branch: automation/docs-snapshot
+          base: main
+          delete-branch: false
